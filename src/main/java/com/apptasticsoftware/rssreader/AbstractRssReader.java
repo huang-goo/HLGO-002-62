@@ -196,53 +196,62 @@ public abstract class AbstractRssReader<C extends Channel, I extends Item> {
         registerItemAttributes();
     }
 
+    @SuppressWarnings({"java:S1192", "java:S1612"})
+    private static final Map<String, BiConsumer<Channel, String>> DEFAULT_CHANNEL_TAGS;
+    static {
+        var map = new LinkedHashMap<String, BiConsumer<Channel, String>>();
+        map.put("title", (channel, value) -> Mapper.mapIfEmpty(value, channel::getTitle, channel::setTitle));
+        map.put("description", (channel, value) -> Mapper.mapIfEmpty(value, channel::getDescription, channel::setDescription));
+        map.put("/feed/title", Channel::setTitle);
+        map.put("/rss/channel/title", Channel::setTitle);
+        map.put("/rss/channel/description", Channel::setDescription);
+        map.put("subtitle", Channel::setDescription);
+        map.put("link", Channel::setLink);
+        map.put("category", Channel::addCategory);
+        map.put("language", Channel::setLanguage);
+        map.put("copyright", Channel::setCopyright);
+        map.put("rights", Channel::setCopyright);
+        map.put("generator", Channel::setGenerator);
+        map.put("ttl", Channel::setTtl);
+        map.put("pubDate", Channel::setPubDate);
+        map.put("published", Channel::setPubDate);
+        map.put("lastBuildDate", Channel::setLastBuildDate);
+        map.put("updated", Channel::setLastBuildDate);
+        map.put("managingEditor", Channel::setManagingEditor);
+        map.put("/feed/author/name", Channel::setManagingEditor);
+        map.put("webMaster", Channel::setWebMaster);
+        map.put("docs", Channel::setDocs);
+        map.put("rating", Channel::setRating);
+        map.put("day", Channel::addSkipDay);
+        map.put("hour", (channel, value) -> mapInteger(value, channel::addSkipHour));
+        map.put("/rss/channel/image/link", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setLink(value));
+        map.put("/rss/channel/image/title", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setTitle(value));
+        map.put("/rss/channel/image/url", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setUrl(value));
+        map.put("/rss/channel/image/description", (channel, value) -> createIfNullOptional(channel::getImage, channel::setImage, Image::new).ifPresent(i -> i.setDescription(value)));
+        map.put("/rss/channel/image/height", (channel, value) -> createIfNullOptional(channel::getImage, channel::setImage, Image::new).ifPresent(i -> mapInteger(value, i::setHeight)));
+        map.put("/rss/channel/image/width", (channel, value) -> createIfNullOptional(channel::getImage, channel::setImage, Image::new).ifPresent(i -> mapInteger(value, i::setWidth)));
+        map.put("/rdf:RDF/image/link", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setLink(value));
+        map.put("/rdf:RDF/image/title", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setTitle(value));
+        map.put("/rdf:RDF/image/url", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setUrl(value));
+        map.put("dc:language", (channel, value) -> Mapper.mapIfEmpty(value, channel::getLanguage, channel::setLanguage));
+        map.put("dc:rights", (channel, value) -> Mapper.mapIfEmpty(value, channel::getCopyright, channel::setCopyright));
+        map.put("dc:title", (channel, value) -> Mapper.mapIfEmpty(value, channel::getTitle, channel::setTitle));
+        map.put("dc:date", (channel, value) -> Mapper.mapIfEmpty(value, channel::getPubDate, channel::setPubDate));
+        map.put("dc:creator", (channel, value) -> Mapper.mapIfEmpty(value, channel::getManagingEditor, channel::setManagingEditor));
+        map.put("sy:updatePeriod", (channel, value) -> { if (channel instanceof ChannelImpl) ((ChannelImpl)channel).setSyUpdatePeriod(value); });
+        map.put("sy:updateFrequency", (channel, value) -> { if (channel instanceof ChannelImpl) mapInteger(value, number -> ((ChannelImpl)channel).setSyUpdateFrequency(number)); });
+        map.put("/feed/icon", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setUrl(value));
+        map.put("/feed/logo", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setUrl(value));
+        DEFAULT_CHANNEL_TAGS = Collections.unmodifiableMap(map);
+    }
+
     /**
      * Register channel tags for mapping to channel object fields
      */
-    @SuppressWarnings({"java:S1192", "java:S1612"})
+    @SuppressWarnings("unchecked")
     protected void registerChannelTags() {
-        channelTags.putIfAbsent("title", (channel, value) -> Mapper.mapIfEmpty(value, channel::getTitle, channel::setTitle));
-        channelTags.putIfAbsent("description", (channel, value) -> Mapper.mapIfEmpty(value, channel::getDescription, channel::setDescription));
-        channelTags.putIfAbsent("/feed/title", Channel::setTitle);
-        channelTags.putIfAbsent("/rss/channel/title", Channel::setTitle);
-        channelTags.putIfAbsent("/rss/channel/description", Channel::setDescription);
-        channelTags.putIfAbsent("subtitle", Channel::setDescription);
-        channelTags.putIfAbsent("link", Channel::setLink);
-        channelTags.putIfAbsent("category", Channel::addCategory);
-        channelTags.putIfAbsent("language", Channel::setLanguage);
-        channelTags.putIfAbsent("copyright", Channel::setCopyright);
-        channelTags.putIfAbsent("rights", Channel::setCopyright);
-        channelTags.putIfAbsent("generator", Channel::setGenerator);
-        channelTags.putIfAbsent("ttl", Channel::setTtl);
-        channelTags.putIfAbsent("pubDate", Channel::setPubDate);
-        channelTags.putIfAbsent("published", Channel::setPubDate);
-        channelTags.putIfAbsent("lastBuildDate", Channel::setLastBuildDate);
-        channelTags.putIfAbsent("updated", Channel::setLastBuildDate);
-        channelTags.putIfAbsent("managingEditor", Channel::setManagingEditor);
-        channelTags.putIfAbsent("/feed/author/name", Channel::setManagingEditor);
-        channelTags.putIfAbsent("webMaster", Channel::setWebMaster);
-        channelTags.putIfAbsent("docs", Channel::setDocs);
-        channelTags.putIfAbsent("rating", Channel::setRating);
-        channelTags.putIfAbsent("day", Channel::addSkipDay);
-        channelTags.putIfAbsent("hour", (channel, value) -> mapInteger(value, channel::addSkipHour));
-        channelTags.putIfAbsent("/rss/channel/image/link", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setLink(value));
-        channelTags.putIfAbsent("/rss/channel/image/title", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setTitle(value));
-        channelTags.putIfAbsent("/rss/channel/image/url", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setUrl(value));
-        channelTags.putIfAbsent("/rss/channel/image/description", (channel, value) -> createIfNullOptional(channel::getImage, channel::setImage, Image::new).ifPresent(i -> i.setDescription(value)));
-        channelTags.putIfAbsent("/rss/channel/image/height", (channel, value) -> createIfNullOptional(channel::getImage, channel::setImage, Image::new).ifPresent(i -> mapInteger(value, i::setHeight)));
-        channelTags.putIfAbsent("/rss/channel/image/width", (channel, value) -> createIfNullOptional(channel::getImage, channel::setImage, Image::new).ifPresent(i -> mapInteger(value, i::setWidth)));
-        channelTags.putIfAbsent("/rdf:RDF/image/link", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setLink(value));
-        channelTags.putIfAbsent("/rdf:RDF/image/title", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setTitle(value));
-        channelTags.putIfAbsent("/rdf:RDF/image/url", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setUrl(value));
-        channelTags.putIfAbsent("dc:language", (channel, value) -> Mapper.mapIfEmpty(value, channel::getLanguage, channel::setLanguage));
-        channelTags.putIfAbsent("dc:rights", (channel, value) -> Mapper.mapIfEmpty(value, channel::getCopyright, channel::setCopyright));
-        channelTags.putIfAbsent("dc:title", (channel, value) -> Mapper.mapIfEmpty(value, channel::getTitle, channel::setTitle));
-        channelTags.putIfAbsent("dc:date", (channel, value) -> Mapper.mapIfEmpty(value, channel::getPubDate, channel::setPubDate));
-        channelTags.putIfAbsent("dc:creator", (channel, value) -> Mapper.mapIfEmpty(value, channel::getManagingEditor, channel::setManagingEditor));
-        channelTags.putIfAbsent("sy:updatePeriod", (channel, value) -> { if (channel instanceof ChannelImpl) ((ChannelImpl)channel).setSyUpdatePeriod(value); });
-        channelTags.putIfAbsent("sy:updateFrequency", (channel, value) -> { if (channel instanceof ChannelImpl) mapInteger(value, number -> ((ChannelImpl)channel).setSyUpdateFrequency(number)); });
-        channelTags.putIfAbsent("/feed/icon", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setUrl(value));
-        channelTags.putIfAbsent("/feed/logo", (channel, value) -> createIfNull(channel::getImage, channel::setImage, Image::new).setUrl(value));
+        DEFAULT_CHANNEL_TAGS.forEach((tag, consumer) ->
+                channelTags.putIfAbsent(tag, (BiConsumer<C, String>) (BiConsumer) consumer));
     }
 
     /**
@@ -254,40 +263,54 @@ public abstract class AbstractRssReader<C extends Channel, I extends Item> {
         channelAttributes.computeIfAbsent("category", k -> new HashMap<>()).putIfAbsent("term", Channel::addCategory);
     }
 
-    /**
-     * Register item tags for mapping to item object fields
-     */
     @SuppressWarnings("java:S1192")
-    protected void registerItemTags() {
-        itemTags.putIfAbsent("guid", Item::setGuid);
-        itemTags.putIfAbsent("id", Item::setGuid);
-        itemTags.putIfAbsent("title", (item, value) -> Mapper.mapIfEmpty(value, item::getTitle, item::setTitle));
-        itemTags.putIfAbsent("/feed/entry/title", Item::setTitle);
-        itemTags.putIfAbsent("/rss/channel/item/title", Item::setTitle);
-        itemTags.putIfAbsent("description", Item::setDescription);
-        itemTags.putIfAbsent("summary", Item::setDescription);
-        itemTags.putIfAbsent("content", Item::setContent);
-        itemTags.putIfAbsent("content:encoded", (item, value) -> Mapper.mapIfEmpty(value, item::getContent, item::setContent));
-        itemTags.putIfAbsent("link", Item::setLink);
-        itemTags.putIfAbsent("author", Item::setAuthor);
-        itemTags.putIfAbsent("/feed/entry/author/name", Item::setAuthor);
-        itemTags.putIfAbsent("category", Item::addCategory);
-        itemTags.putIfAbsent("pubDate", Item::setPubDate);
-        itemTags.putIfAbsent("published", Item::setPubDate);
-        itemTags.putIfAbsent("updated", (item, value) -> {
+    private static final Map<String, BiConsumer<Item, String>> DEFAULT_ITEM_TAGS;
+    static {
+        var map = new LinkedHashMap<String, BiConsumer<Item, String>>();
+        map.put("guid", Item::setGuid);
+        map.put("id", Item::setGuid);
+        map.put("title", (item, value) -> Mapper.mapIfEmpty(value, item::getTitle, item::setTitle));
+        map.put("/feed/entry/title", Item::setTitle);
+        map.put("/rss/channel/item/title", Item::setTitle);
+        map.put("description", Item::setDescription);
+        map.put("summary", Item::setDescription);
+        map.put("content", Item::setContent);
+        map.put("content:encoded", (item, value) -> Mapper.mapIfEmpty(value, item::getContent, item::setContent));
+        map.put("link", Item::setLink);
+        map.put("author", Item::setAuthor);
+        map.put("/feed/entry/author/name", Item::setAuthor);
+        map.put("category", Item::addCategory);
+        map.put("pubDate", Item::setPubDate);
+        map.put("published", Item::setPubDate);
+        map.put("updated", (item, value) -> {
             item.setUpdated(value);
             Mapper.mapIfEmpty(value, item::getPubDate, item::setPubDate);
         });
-        itemTags.putIfAbsent("comments", Item::setComments);
-        itemTags.putIfAbsent("dc:creator", (item, value) -> Mapper.mapIfEmpty(value, item::getAuthor, item::setAuthor));
-        itemTags.putIfAbsent("dc:date", (item, value) -> Mapper.mapIfEmpty(value, item::getPubDate, item::setPubDate));
-        itemTags.putIfAbsent("dc:identifier", (item, value) -> Mapper.mapIfEmpty(value, item::getGuid, item::setGuid));
-        itemTags.putIfAbsent("dc:title", (item, value) -> Mapper.mapIfEmpty(value, item::getTitle, item::setTitle));
-        itemTags.putIfAbsent("dc:description", (item, value) -> Mapper.mapIfEmpty(value, item::getDescription, item::setDescription));
-        itemTags.putIfAbsent("dc:content", (item, value) -> Mapper.mapIfEmpty(value, item::getContent, item::setContent));
-        itemTags.putIfAbsent("dc:subject", Item::addCategory);
+        map.put("comments", Item::setComments);
+        map.put("dc:creator", (item, value) -> Mapper.mapIfEmpty(value, item::getAuthor, item::setAuthor));
+        map.put("dc:date", (item, value) -> Mapper.mapIfEmpty(value, item::getPubDate, item::setPubDate));
+        map.put("dc:identifier", (item, value) -> Mapper.mapIfEmpty(value, item::getGuid, item::setGuid));
+        map.put("dc:title", (item, value) -> Mapper.mapIfEmpty(value, item::getTitle, item::setTitle));
+        map.put("dc:description", (item, value) -> Mapper.mapIfEmpty(value, item::getDescription, item::setDescription));
+        map.put("dc:content", (item, value) -> Mapper.mapIfEmpty(value, item::getContent, item::setContent));
+        map.put("dc:subject", Item::addCategory);
+        DEFAULT_ITEM_TAGS = Collections.unmodifiableMap(map);
+    }
 
-        onItemTags.put("enclosure", item -> item.addEnclosure(new Enclosure()));
+    @SuppressWarnings("java:S1192")
+    private static final Map<String, Consumer<Item>> DEFAULT_ON_ITEM_TAGS = Map.of(
+            "enclosure", item -> item.addEnclosure(new Enclosure())
+    );
+
+    /**
+     * Register item tags for mapping to item object fields
+     */
+    @SuppressWarnings("unchecked")
+    protected void registerItemTags() {
+        DEFAULT_ITEM_TAGS.forEach((tag, consumer) ->
+                itemTags.putIfAbsent(tag, (BiConsumer<I, String>) (BiConsumer) consumer));
+        DEFAULT_ON_ITEM_TAGS.forEach((tag, consumer) ->
+                onItemTags.putIfAbsent(tag, (Consumer<I>) (Consumer) consumer));
     }
 
     /**
